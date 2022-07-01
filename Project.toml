@@ -2,3 +2,7 @@ name = "Minesweeper"
 uuid = "ae421bf5-8aff-41ce-bce4-6d2d63dc6ab1"
 authors = ["Pablo <valdunciel98@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
