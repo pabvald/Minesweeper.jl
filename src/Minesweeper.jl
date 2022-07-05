@@ -17,8 +17,7 @@ MINESWEEPER
 4. Read from file 
 5. Exit 
 
-Choose an option:
-"""
+Choose an option:"""
 
 # Exported references
 # ---------------------
@@ -34,68 +33,70 @@ export play
 """
     load_board()
 
-Loads a Board from a text file.
+Loads the specification of a Board from a text file.
 """
 function load_board()
     filename = "" 
     filepath = ""
-    content = ""
     read = false 
+    content::Union{Vector{String}, Nothing} = nothing
 
     while !read
+        n_rows = -1
+        n_cols = -1
+        valid = true
+
         # ask user for filename
         print("\nPlease, introduce the filename: ")
         filename = readline()
         filepath = "src/data/$(filename)"
         
         # check if file exists
-        if isfile(filepath)
-            board = readlines(filepath)
-
-            # read n_rows and n_cols
-            s = split(strip(board[1]))
-            try
-                n_rows = parse(Int, s[1])
-                n_cols = parse(Int, s[2])
-            catch
-                print("\nError - invalid file format")
-                continue
-            end
-            
-            # create empty array of cells
-            cells = Array{Cells.Cell, 2}(undef, n_rows, n_cols)
-            
-            if length(board) - 1 != n_rows
-                print("\nError - invalid file format")
-                continue
-            end 
-            # TODO: fix the format validation
-            for (i, row) in enumerate(board[2:end])
-                if length(row) != n_cols
-                    print("\nError - invalid file format")
-                    continue
-                end 
-
-                for (j, c) in enumerate(strip(row))
-                    hasmine = c == '*' ? true : false
-                    cells[i,j] = Cells.Cell(hasmine)
-                end
-            end
-
-            read = true
-        else    
+        if  !isfile(filepath)
             print("\nError - `$(filepath)` is not a file")
+            continue
         end 
 
+        content= readlines(filepath)
+
+        # read n_rows and n_cols
+        s = split(strip(content[1]))
+        try
+            n_rows = parse(Int, s[1])
+            n_cols = parse(Int, s[2])
+        catch e  
+            valid = false
+        end
+        
+        for row in content[2:end]
+            if length(strip(row)) != n_cols
+                valid = false
+                break
+            end
+            for col in strip(row)
+                if !(col in ".*")
+                    valid = false 
+                    break
+                end
+            end
+        end
+
+        if !valid
+            print("\nError - invalid file format")
+            continue
+        end 
+
+        read = true
+        
     end # while 
 
-    Boards.Board(cells)
+    content
 end 
 
 
 function play(b::Boards.Board)
-
-
+    print(b)
+    return 1 
 end 
 
 """
@@ -121,7 +122,8 @@ function main()
             board = Boards.Board(:expert)
             play(board)
         elseif selec == 4
-            board = load_board()
+            description = load_board()
+            board = Boards.Board(description)
             play(board)
         elseif selec == 5
             print("Good bye!!\n")

@@ -28,12 +28,12 @@ MAX_COLS = 30
 ## Characters to draw the Board
 INDENT_BIG = "    "
 INDENT_SMALL = "  "
-COE  = '\u2500' # ─ 
-CNS  = '\u2502' # │ 
-CES  = '\u250C' # ┌ 
-CSO  = '\u2510' # ┐ 
-CNE  = '\u2514' # └ 
-CON  = '\u2518' # ┘ 
+COE = '\u2500' # ─ 
+CNS = '\u2502' # │ 
+CES = '\u250C' # ┌ 
+CSO = '\u2510' # ┐ 
+CNE = '\u2514' # └ 
+CON = '\u2518' # ┘ 
 COES = '\u252C' # ┬ 
 CNES = '\u251C' # ├ 
 CONS = '\u2524' # ┤ 
@@ -61,7 +61,7 @@ and cells `cells`.
 """
 mutable struct Board
     tstart::Dates.DateTime
-    tend::Union{Dates.DateTime, Nothing}
+    tend::Union{Dates.DateTime,Nothing}
     cells::Matrix{Cells.Cell}
 end
 
@@ -82,20 +82,19 @@ randomly distributed.
 function Board(rows::Int, cols::Int, n::Int)
 
     mined_positions = sample(1:(rows*cols), n, replace=false)
-    cells = Array{Cells.Cell, 2}(undef, rows, cols)
-    
+    cells = Array{Cells.Cell,2}(undef, rows, cols)
+
     for j in 1:cols
-        for i in 1:rows 
-            pos::Int = (i-1)*cols + j
+        for i in 1:rows
+            pos::Int = (i - 1) * cols + j
             hasmine::Bool = pos in mined_positions
             c = Cells.Cell(hasmine)
-            cells[i,j] = c
-        end 
-    end  
-    
+            cells[i, j] = c
+        end
+    end
+
     Board(cells)
 end
-
 
 """
     Board
@@ -107,13 +106,35 @@ function Board(d::Symbol)
         Board(9, 9, 10)
     elseif d == :intermediate
         Board(16, 16, 40)
-    elseif d == :expert 
+    elseif d == :expert
         Board(16, 30, 99)
     else
         throw(ArgumentError("undefined difficulty '$(:d)'"))
-    end 
+    end
 end
 
+"""
+    Board(v::Vector{String})
+
+Constructs a Boad given its definitio in text.
+"""
+function Board(v::Vector{String})
+    s = split(strip(v[1]))
+    n_rows = parse(Int, s[1])
+    n_cols = parse(Int, s[2])
+
+    # create empty array of cells
+    cells = Array{Cells.Cell, 2}(undef, n_rows, n_cols)
+    
+    for (i, row) in enumerate(v[2:end])
+        for (j, c) in enumerate(strip(row))
+            hasmine = c == '*' ? true : false
+            cells[i,j] = Cells.Cell(hasmine)
+        end
+    end
+
+    Board(cells)
+end 
 
 """
     boardtime(b::Board)
@@ -123,79 +144,88 @@ function boardtime(b::Board)
     convert(Dates.DateTime, Dates.now() - b.tstart)
 end
 
+"""
+    show(io::IO, b::Board)
 
+Writes a text representation of the board.
+"""
 function show(io::IO, b::Board)
 
-    rowindent(row::Int) = " " ? iseven(row) : "   "
+    # Auxiliar functions
+    rowindent(row::Int) = iseven(row) ?  " " : "   "
+
     n_rows, n_cols = size(b)
     t_sec = Dates.format(boardtime(b), "S.s") # time in seconds
 
     # header
-    s = "REMAINING MINES: $(16) | MARKED: $(3) | TIME: $(t_sec) sec.\n"
+    s = "\nREMAINING MINES: $(16) | MARKED: $(marked(b)) | TIME: $(t_sec) sec.\n"
 
     # col names 
     colnames = "     "
     for letter in COL_NAMES[1:n_cols]
-        colnames *= "$(letter)   " 
-    end  
+        colnames *= "$(letter)   "
+    end
     s = s * colnames * "\n"
-    
+
     # rows 
-    for i in 1:n_rows
+    for i = 1:n_rows
         row = ""
-        for k in 1:3
-            for j in 1:n_cols         
+        for k = 1:3, j = 1:n_cols
                 if k == 1
-                    if j == 1 
-                        if i == 1 
-                            row *= "    $(CES)$(COE)$(COE)$(COE)"
+                    if j == 1
+                        if i == 1
+                            row *= "$(INDENT_BIG)$(CES)$(COE)$(COE)$(COE)"
                         elseif isodd(i)
-                            row *= "  $(CNE)$(COE)$(COES)$(COE)$(CONE)$(COE)"
-                        else 
-                            row *= "  $(CES)$(COE)$(CONE)$(COE)"
-                        end 
+                            row *= "$(INDENT_SMALL)$(CNE)$(COE)$(COES)$(COE)$(CONE)$(COE)"
+                        else
+                            row *= "$(INDENT_SMALL)$(CES)$(COE)$(CONE)$(COE)"
+                        end
                     elseif (1 < j < n_cols)
-                        if i == 1 
+                        if i == 1
                             row *= "$(COES)$(COE)$(COE)$(COE)"
                         elseif isodd(i)
                             row *= "$(COES)$(COE)$(CONE)$(COE)"
                         else
                             row *= "$(COES)$(COE)$(CONE)$(COE)"
-                        end 
+                        end
                     else  # j == n_cols 
-                        if i == 1 
-                            row *=  "$(COES)$(COE)$(COE)$(COE)$(CSO)\n"
+                        if i == 1
+                            row *= "$(COES)$(COE)$(COE)$(COE)$(CSO)\n"
                         elseif isodd(i)
                             row *= "$(COES)$(COE)$(CONE)$(COE)$(CSO)\n"
-                        else 
+                        else
                             row *= "$(COES)$(COE)$(CONE)$(COE)$(COES)$(COE)$(CON)\n"
-                        end 
-                    end 
+                        end
+                    end
 
-                elseif k == 2 
-                    if  j== 1 
+                elseif k == 2
+                    if j == 1
                         row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(CSOM) "
                     elseif 1 < j < n_cols
                         row *= "$(CNS) $(CSOM) "
-                    else 
+                    else
                         row *= "$(CNS) $(CSOM) $(CNS)\n"
-                    end 
+                    end
 
                 else
                     if j == 1 && i == n_rows
-                        row *= "    $(CNE)$(COE)$(COE)$(COE)"
+                        if isodd(i)
+                            row *= "$(INDENT_BIG)$(CNE)$(COE)$(COE)$(COE)"
+                        else
+                            row *= "$(INDENT_SMALL)$(CNE)$(COE)$(COE)$(COE)"
+                        end 
                     elseif 1 < j < n_cols && i == n_rows
                         row *= "$(CONE)$(COE)$(COE)$(COE)"
                     elseif j == n_cols && i == n_rows
                         row *= "$(CONE)$(COE)$(COE)$(COE)$(CON)\n"
-                    else 
+                    else
                         continue
-                    end  
-                end                
-            end  # k for        
-        end 
+                    end
+                end      
+        end # k, j for
         s *= row
-    end 
+    end # i for
+
     print(io, s)
 end
 
@@ -206,8 +236,7 @@ Dimensions of the Board `b`.
 """
 function size(b::Board)
     size(b.cells)
-end 
-
+end
 
 """
     marked(b::Board)
@@ -219,16 +248,14 @@ function marked(b::Board)
 
     marked = 0
     for j in 1:n_cols
-        for i in 1:n_rows 
-            if b.cells[i,j].marked 
+        for i in 1:n_rows
+            if b.cells[i, j].marked
                 marked += 1
-            end 
-        end 
-    end 
-    
+            end
+        end
+    end
+
     marked
 end
 
 end # module    
-
-
