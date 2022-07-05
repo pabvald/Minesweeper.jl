@@ -7,12 +7,12 @@ module Boards
 
 # Base Dependencies 
 # ---------------------
-import Base: size
+import Base: size, show
 import StatsBase: sample
 
 # 3rd Party Dependencies 
 # ---------------------
-using Dates 
+using Dates
 
 # Inclusions
 # ---------------------
@@ -26,6 +26,8 @@ MAX_ROWS = 30
 MAX_COLS = 30
 
 ## Characters to draw the Board
+INDENT_BIG = "    "
+INDENT_SMALL = "  "
 COE  = '\u2500' # ─ 
 CNS  = '\u2502' # │ 
 CES  = '\u250C' # ┌ 
@@ -42,6 +44,11 @@ CSOM = '\u2593' # ▒
 # Exported references
 # ---------------------
 export Board
+
+
+# Auxiliary functions 
+# ---------------------
+
 
 
 # Main functions 
@@ -107,13 +114,89 @@ function Board(d::Symbol)
     end 
 end
 
-"""
-    Board
 
-Constructs a Board from a string definition.
 """
-function Board(board::String)
-    return undef 
+    boardtime(b::Board)
+Determines the elapsed time since the Board `b` was created.
+"""
+function boardtime(b::Board)
+    convert(Dates.DateTime, Dates.now() - b.tstart)
+end
+
+
+function show(io::IO, b::Board)
+
+    rowindent(row::Int) = " " ? iseven(row) : "   "
+    n_rows, n_cols = size(b)
+    t_sec = Dates.format(boardtime(b), "S.s") # time in seconds
+
+    # header
+    s = "REMAINING MINES: $(16) | MARKED: $(3) | TIME: $(t_sec) sec.\n"
+
+    # col names 
+    colnames = "     "
+    for letter in COL_NAMES[1:n_cols]
+        colnames *= "$(letter)   " 
+    end  
+    s = s * colnames * "\n"
+    
+    # rows 
+    for i in 1:n_rows
+        row = ""
+        for k in 1:3
+            for j in 1:n_cols         
+                if k == 1
+                    if j == 1 
+                        if i == 1 
+                            row *= "    $(CES)$(COE)$(COE)$(COE)"
+                        elseif isodd(i)
+                            row *= "  $(CNE)$(COE)$(COES)$(COE)$(CONE)$(COE)"
+                        else 
+                            row *= "  $(CES)$(COE)$(CONE)$(COE)"
+                        end 
+                    elseif (1 < j < n_cols)
+                        if i == 1 
+                            row *= "$(COES)$(COE)$(COE)$(COE)"
+                        elseif isodd(i)
+                            row *= "$(COES)$(COE)$(CONE)$(COE)"
+                        else
+                            row *= "$(COES)$(COE)$(CONE)$(COE)"
+                        end 
+                    else  # j == n_cols 
+                        if i == 1 
+                            row *=  "$(COES)$(COE)$(COE)$(COE)$(CSO)\n"
+                        elseif isodd(i)
+                            row *= "$(COES)$(COE)$(CONE)$(COE)$(CSO)\n"
+                        else 
+                            row *= "$(COES)$(COE)$(CONE)$(COE)$(COES)$(COE)$(CON)\n"
+                        end 
+                    end 
+
+                elseif k == 2 
+                    if  j== 1 
+                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(CSOM) "
+                    elseif 1 < j < n_cols
+                        row *= "$(CNS) $(CSOM) "
+                    else 
+                        row *= "$(CNS) $(CSOM) $(CNS)\n"
+                    end 
+
+                else
+                    if j == 1 && i == n_rows
+                        row *= "    $(CNE)$(COE)$(COE)$(COE)"
+                    elseif 1 < j < n_cols && i == n_rows
+                        row *= "$(CONE)$(COE)$(COE)$(COE)"
+                    elseif j == n_cols && i == n_rows
+                        row *= "$(CONE)$(COE)$(COE)$(COE)$(CON)\n"
+                    else 
+                        continue
+                    end  
+                end                
+            end  # k for        
+        end 
+        s *= row
+    end 
+    print(io, s)
 end
 
 """
@@ -125,6 +208,26 @@ function size(b::Board)
     size(b.cells)
 end 
 
+
+"""
+    marked(b::Board)
+
+Number of cells that are marked 
+"""
+function marked(b::Board)
+    n_rows, n_cols = size(b)
+
+    marked = 0
+    for j in 1:n_cols
+        for i in 1:n_rows 
+            if b.cells[i,j].marked 
+                marked += 1
+            end 
+        end 
+    end 
+    
+    marked
+end
 
 end # module    
 

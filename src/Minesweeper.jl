@@ -3,6 +3,7 @@ module Minesweeper
 # Inclusions
 # ---------------------
 include("Boards.jl")
+include("Cells.jl")
 
 # Module Constants
 # ---------------------
@@ -30,7 +31,12 @@ export play
 # Primary Functions
 # ---------------------
 
-function read_file()
+"""
+    load_board()
+
+Loads a Board from a text file.
+"""
+function load_board()
     filename = "" 
     filepath = ""
     content = ""
@@ -40,29 +46,64 @@ function read_file()
         # ask user for filename
         print("\nPlease, introduce the filename: ")
         filename = readline()
-        filepath = joinpath("src", "data", filename)
-
+        filepath = "src/data/$(filename)"
+        
         # check if file exists
-        f = open(filepath, "r") 
-        print(typeof(f))
-        if isfile(f)
-            content = read(f, String)
+        if isfile(filepath)
+            board = readlines(filepath)
+
+            # read n_rows and n_cols
+            s = split(strip(board[1]))
+            try
+                n_rows = parse(Int, s[1])
+                n_cols = parse(Int, s[2])
+            catch
+                print("\nError - invalid file format")
+                continue
+            end
+            
+            # create empty array of cells
+            cells = Array{Cells.Cell, 2}(undef, n_rows, n_cols)
+            
+            if length(board) - 1 != n_rows
+                print("\nError - invalid file format")
+                continue
+            end 
+            # TODO: fix the format validation
+            for (i, row) in enumerate(board[2:end])
+                if length(row) != n_cols
+                    print("\nError - invalid file format")
+                    continue
+                end 
+
+                for (j, c) in enumerate(strip(row))
+                    hasmine = c == '*' ? true : false
+                    cells[i,j] = Cells.Cell(hasmine)
+                end
+            end
+
             read = true
         else    
             print("\nError - `$(filepath)` is not a file")
         end 
-        close(f)
 
     end # while 
 
-    content
+    Boards.Board(cells)
 end 
 
 
-"""
+function play(b::Boards.Board)
+
+
+end 
 
 """
-function play()
+    main()
+
+Initiates the Minesweeper game.
+"""
+function main()
     exit = false 
 
     while !exit 
@@ -72,13 +113,16 @@ function play()
 
         if selec == 1
             board = Boards.Board(:beginner)
+            play(board)
         elseif selec == 2
             board = Boards.Board(:intermediate)
+            play(board)
         elseif selec == 3
             board = Boards.Board(:expert)
+            play(board)
         elseif selec == 4
-            filecontent = read_file()
-            board = Boards.Board(filecontent)
+            board = load_board()
+            play(board)
         elseif selec == 5
             print("Good bye!!\n")
             exit = true
