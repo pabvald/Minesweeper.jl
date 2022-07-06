@@ -7,7 +7,7 @@ module Boards
 
 # Base Dependencies 
 # ---------------------
-import Base: size, show
+import Base: size, show, getindex
 import StatsBase: sample
 
 # 3rd Party Dependencies 
@@ -38,7 +38,6 @@ COES = '\u252C' # ┬
 CNES = '\u251C' # ├ 
 CONS = '\u2524' # ┤ 
 CONE = '\u2534' # ┴ 
-CSOM = '\u2593' # ▒
 
 
 # Exported references
@@ -59,10 +58,10 @@ export Board
 Represents a Minesweeper gameboard with an start time `tstart`
 and cells `cells`.
 """
-mutable struct Board
-    tstart::Dates.DateTime
-    tend::Union{Dates.DateTime,Nothing}
+mutable struct Board <: AbstractArray{Cells.Cell, 2}
     cells::Matrix{Cells.Cell}
+    tstart::Dates.DateTime
+    tend::Union{Dates.DateTime,Nothing}  
 end
 
 """
@@ -137,11 +136,21 @@ function Board(v::Vector{String})
 end 
 
 """
-    boardtime(b::Board)
-Determines the elapsed time since the Board `b` was created.
+    getindex(b::Board, i::Int64, j::Int64)
+
+Gets 'b.cells[i,j]'.
 """
-function boardtime(b::Board)
-    convert(Dates.DateTime, Dates.now() - b.tstart)
+function getindex(b::Board, i::Int64, j::Int64)
+    getindex(b.cells, i, j)
+end
+
+"""
+    size(b::Board)
+
+Dimensions of the Board `b`.
+"""
+function size(b::Board)
+    size(b.cells)
 end
 
 """
@@ -170,7 +179,8 @@ function show(io::IO, b::Board)
     # rows 
     for i = 1:n_rows
         row = ""
-        for k = 1:3, j = 1:n_cols
+        for k = 1:3
+            for j = 1:n_cols
                 if k == 1
                     if j == 1
                         if i == 1
@@ -200,11 +210,11 @@ function show(io::IO, b::Board)
 
                 elseif k == 2
                     if j == 1
-                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(CSOM) "
+                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(Cells.tochar(b[i,j])) "
                     elseif 1 < j < n_cols
-                        row *= "$(CNS) $(CSOM) "
+                        row *= "$(CNS) $(Cells.tochar(b[i,j])) "
                     else
-                        row *= "$(CNS) $(CSOM) $(CNS)\n"
+                        row *= "$(CNS) $(Cells.tochar(b[i,j])) $(CNS)\n"
                     end
 
                 else
@@ -222,7 +232,8 @@ function show(io::IO, b::Board)
                         continue
                     end
                 end      
-        end # k, j for
+            end # k for
+        end # j for
         s *= row
     end # i for
 
@@ -230,12 +241,11 @@ function show(io::IO, b::Board)
 end
 
 """
-    size(b::Board)
-
-Dimensions of the Board `b`.
+    boardtime(b::Board)
+Determines the elapsed time since the Board `b` was created.
 """
-function size(b::Board)
-    size(b.cells)
+function boardtime(b::Board)
+    convert(Dates.DateTime, Dates.now() - b.tstart)
 end
 
 """
@@ -257,5 +267,31 @@ function marked(b::Board)
 
     marked
 end
+
+"""
+    neighbours(b::Board, i::Int64, j::Int64)
+
+Cell neighbours at position `[i, j]`
+"""
+function neighbours(b::Board, i::Int64, j::Int64)
+    n::Vector{Cells.Cell} = []
+    n_rows, n_cols = size(b)
+
+    n
+end 
+
+function finish(b::Board)
+    b.tend = Dates.now()
+end
+
+function mark(b::Board, i::Int64, j::Int64)
+    #TODO 
+    return true 
+end
+
+function open(b::Board, i::Int64, j::Int64)
+    #TODO 
+    true
+end 
 
 end # module    

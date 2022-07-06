@@ -5,14 +5,19 @@ Includes the Cell struct and all its related functionality.
 """
 module Cells
 
+# Base Dependencies
+# ---------------------
 
 # Exported references
 # ---------------------
-export Cell, open!, mark!
+export Cell, open!, mark!, mines_left, tochar 
 
+# Constants 
+# ---------------------
 
 # Main functions
 # ---------------------
+
 """
     Cell 
 
@@ -21,7 +26,7 @@ Cell of the board.
 mutable struct Cell
     opened::Bool
     marked::Bool 
-    hasmine::Bool
+    mined::Bool
 end 
 
 """
@@ -30,6 +35,7 @@ end
 Cell of the board with a mine if `hasmine' is `true`, empty otherwise
 """
 Cell(hasmine) = Cell(false, false, hasmine)
+
 
 """
     open!(c::Cell)
@@ -49,19 +55,65 @@ function mark!(c::Cell)
     c.marked = !c.marked
 end 
 
-
+"""
+    isopen(c::Cell)
+Returns `true` if Cell `c` is 'opened'.
+"""
 function isopen(c::Cell)
     c.opened
 end
 
+"""
+    isopen(c::Cell)
+Returns `true` if Cell `c` is 'opened'.
+"""
 function ismarked(c::Cell)
     c.marked
 end
 
-
+"""
+    hasmine(c::Cell)
+Returns `true` if Cell `c` is 'mined'.
+"""
 function hasmine(c::Cell)
     c.hasmine
 end 
 
+"""
+    tochar(c::Cell, n::Int=0)
+
+Provides a character representation of a Cell `c` depending on 
+its state and the `n = # of mined neighbours - # of marked neighbours`.
+""" 
+function tochar(c::Cell, n::Int=0)
+
+    if isopen(c)
+        if n > 0
+            Char(n)
+        elseif n == 0
+            ' '
+        else # n < 0
+            '?'
+        end 
+    else
+        if ismarked(c)
+            'X'
+        else 
+            '\u2593' # ▒
+        end 
+    end     
+end
+
+"""
+    mines_left(v::Vector{Cell})
+
+Estimated number of mines to be discovered in a group of cells.
+"""
+function mines_left(v::Vector{Cell})
+    withmine = length(filter(c -> hasmine(c), v))
+    withmark = length(filter(c -> ismarked(c), v))
+
+    withmine - withmark
+end 
 
 end 
