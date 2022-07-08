@@ -22,6 +22,7 @@ include("Cells.jl")
 # ---------------------
 ROW_NAMES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ@#\$%&"
 COL_NAMES = "abcdefghijklmnopqrstuvwxyz=+-:/"
+ACTIONS = "!*"
 MAX_ROWS = 30
 MAX_COLS = 30
 
@@ -62,21 +63,17 @@ mutable struct Board <: AbstractArray{Cells.Cell, 2}
     cells::Matrix{Cells.Cell}
     tstart::Dates.DateTime
     tend::Union{Dates.DateTime,Nothing}  
+    
+    function Board(cells::Matrix{Cells.Cell})
+        new(cells, Dates.now(), nothing)
+    end
 end
 
 """
-    Board
+    Board(rows::Int, cols::Int, n::Int)
 
-Constructs a Board with a start time `Dates.now()` and cells `cells`.
-"""
-Board(cells::Matrix{Cells.Cell}) = Board(Dates.now(), nothing, cells)
-
-
-"""
-    Board 
-
-Constructs a Board of dimensions `(rows, cols)` with `n` mines 
-randomly distributed.
+Constructs a Board of size `(rows, cols)` with `n` mines randomly
+located.
 """
 function Board(rows::Int, cols::Int, n::Int)
 
@@ -87,8 +84,7 @@ function Board(rows::Int, cols::Int, n::Int)
         for i in 1:rows
             pos::Int = (i - 1) * cols + j
             hasmine::Bool = pos in mined_positions
-            c = Cells.Cell(hasmine)
-            cells[i, j] = c
+            cells[i, j] = Cells.Cell(hasmine)
         end
     end
 
@@ -96,9 +92,9 @@ function Board(rows::Int, cols::Int, n::Int)
 end
 
 """
-    Board
+    Board(rows::Int, cols::Int, n::Int)
 
-Constructs a Board with difficulty `d`.
+Constructs a Board of difficulty `d` in `[:begginer, :intermediate, :difficult]`.
 """
 function Board(d::Symbol)
     if d == :beginner
@@ -113,9 +109,9 @@ function Board(d::Symbol)
 end
 
 """
-    Board(v::Vector{String})
+    Board(rows::Int, cols::Int, n::Int)
 
-Constructs a Boad given its definitio in text.
+Constructs a Board from a text especification.
 """
 function Board(v::Vector{String})
     s = split(strip(v[1]))
@@ -134,6 +130,7 @@ function Board(v::Vector{String})
 
     Board(cells)
 end 
+
 
 """
     getindex(b::Board, i::Int64, j::Int64)
@@ -277,21 +274,90 @@ function neighbours(b::Board, i::Int64, j::Int64)
     n::Vector{Cells.Cell} = []
     n_rows, n_cols = size(b)
 
+    if j > 1
+        append!(n, b[i,j-1])
+    end
+
+    if j < n_cols
+        append!(n, b[i,j+1])
+    end
+
+    if isodd(i)
+        if i > 1
+            append!(n, [b[i-1, j], b[i-1,j+1]])
+        end 
+
+        if i < n_rows
+            append!(n, [b[i+1,j], b[i+1,j+1]])
+        end 
+    else
+        if i > 1
+            append!(n, [b[i-1, j], b[i-1,j-1]])
+        end 
+
+        if i < n_rows
+            append!(n, [b[i+1,j], b[i+1,j-1]])
+        end 
+
+    end
     n
 end 
 
-function finish(b::Board)
+"""
+    n(n::Vector{Cell})
+
+Estimated number of mines to be discovered among the neighbours
+of Cell at position `[i,j]`.
+"""
+function n(b::Board, i::Int64, j::Int64)
+    nbs = neighbours(b, i, j)
+    withmine = length(filter(c -> hasmine(c), nbs))
+    withmark = length(filter(c -> ismarked(c), nbs))
+
+    withmine - withmark
+end 
+
+function colnames(b::Board)
+    n_rows, n_cols = size(b)
+    COL_NAMES[1:n_cols]
+end
+
+function rownames(b::Board)
+    n_rows, n_cols = size(b)
+    ROW_NAMES[1:n_rows]
+end
+
+function isfinished(b::Board)
+    #TODO
+    false
+end 
+
+
+function isvalid_play(b::Board, play::String)
+    if length(play) != 3 
+        falseñ
+    elseif !(play[1] in rownames(b))
+        false 
+    elseif !(play[2] in colnames(b))
+        false
+    elseif !(play[3] in ACTIONS)
+        false
+    else
+        true 
+    end
+end
+
+
+function regfinish!(b::Board)
     b.tend = Dates.now()
 end
 
-function mark(b::Board, i::Int64, j::Int64)
-    #TODO 
-    return true 
+function mark!(b::Board, i::Int64, j::Int64)
+    Cells.mark!(b[i,j])
 end
 
-function open(b::Board, i::Int64, j::Int64)
-    #TODO 
-    true
+function open!(b::Board, i::Int64, j::Int64)
+    Cells.open!(b[i,j])
 end 
 
 end # module    

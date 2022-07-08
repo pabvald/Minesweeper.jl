@@ -27,14 +27,11 @@ mutable struct Cell
     opened::Bool
     marked::Bool 
     mined::Bool
+
+    function Cell(hasmine) 
+        new(false, false, hasmine)
+    end
 end 
-
-"""
-    Cell
-
-Cell of the board with a mine if `hasmine' is `true`, empty otherwise
-"""
-Cell(hasmine) = Cell(false, false, hasmine)
 
 
 """
@@ -103,17 +100,5 @@ function tochar(c::Cell, n::Int=0)
         end 
     end     
 end
-
-"""
-    mines_left(v::Vector{Cell})
-
-Estimated number of mines to be discovered in a group of cells.
-"""
-function mines_left(v::Vector{Cell})
-    withmine = length(filter(c -> hasmine(c), v))
-    withmark = length(filter(c -> ismarked(c), v))
-
-    withmine - withmark
-end 
 
 end 

@@ -3,7 +3,6 @@ module Minesweeper
 # Inclusions
 # ---------------------
 include("Boards.jl")
-include("Cells.jl")
 
 # Module Constants
 # ---------------------
@@ -18,6 +17,8 @@ MINESWEEPER
 5. Exit 
 
 Choose an option:"""
+
+PLAY_MENU = "\nIndicate cell and action (! mark, * open): "
 
 # Exported references
 # ---------------------
@@ -95,8 +96,20 @@ end
 
 
 function play(b::Boards.Board)
-    print(b)
-    return 1 
+
+    while !Boards.isfinished(b)
+        print(b)
+        print(PLAY_MENU)
+
+        i = 1
+        allinput = readline()
+
+        while i < length(allinput) 
+            input = allinput[i:min(i+2, length(allinput))]
+            print(input * "\n")
+            i +=3
+        end       
+    end
 end 
 
 """
