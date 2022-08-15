@@ -10,7 +10,7 @@ module Cells
 
 # Exported references
 # ---------------------
-export Cell, open!, mark!, mines_left, tochar 
+export Cell, open!, mark!, tochar, isopen, ismarked
 
 # Constants 
 # ---------------------
@@ -24,15 +24,16 @@ export Cell, open!, mark!, mines_left, tochar
 Cell of the board.
 """
 mutable struct Cell
+    row::Int
+    col::Int 
     opened::Bool
     marked::Bool 
     mined::Bool
-
-    function Cell(hasmine) 
-        new(false, false, hasmine)
+    
+    function Cell(row, col, hasmine) 
+        new(row, col, false, false, hasmine)
     end
 end 
-
 
 """
     open!(c::Cell)
@@ -56,7 +57,7 @@ end
     isopen(c::Cell)
 Returns `true` if Cell `c` is 'opened'.
 """
-function isopen(c::Cell)
+function isopen(c::Cell)::Bool
     c.opened
 end
 
@@ -64,7 +65,7 @@ end
     isopen(c::Cell)
 Returns `true` if Cell `c` is 'opened'.
 """
-function ismarked(c::Cell)
+function ismarked(c::Cell)::Bool
     c.marked
 end
 
@@ -72,7 +73,7 @@ end
     hasmine(c::Cell)
 Returns `true` if Cell `c` is 'mined'.
 """
-function hasmine(c::Cell)
+function hasmine(c::Cell)::Bool
     c.hasmine
 end 
 
@@ -82,15 +83,15 @@ end
 Provides a character representation of a Cell `c` depending on 
 its state and the `n = # of mined neighbours - # of marked neighbours`.
 """ 
-function tochar(c::Cell, n::Int=0)
-
+function tochar(c::Cell, n::Int=0)::Char
+    #TODO special cases when the game has finished
     if isopen(c)
-        if n > 0
-            Char(n)
+        if n < 0 
+            '?'
         elseif n == 0
             ' '
-        else # n < 0
-            '?'
+        else # n > 0
+            Char(n)
         end 
     else
         if ismarked(c)

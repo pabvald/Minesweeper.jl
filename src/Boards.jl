@@ -13,59 +13,118 @@ import StatsBase: sample
 # 3rd Party Dependencies 
 # ---------------------
 using Dates
+using Revise
 
-# Inclusions
+# Local Dependencies
 # ---------------------
 include("Cells.jl")
+using .Cells
 
 # Module Constants
 # ---------------------
-ROW_NAMES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ@#\$%&"
-COL_NAMES = "abcdefghijklmnopqrstuvwxyz=+-:/"
-ACTIONS = "!*"
-MAX_ROWS = 30
-MAX_COLS = 30
+const ROW_NAMES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ@#\$%&"
+const COL_NAMES = "abcdefghijklmnopqrstuvwxyz=+-:/"
+const ACTIONS_SYMBOLS = "!*"
+
+const MAX_ROWS = 30
+const MAX_COLS = 30
+const ERROR_MSGS = Dict(
+    # key : error message
+    "wrong_input" => "WRONG INPUT",
+    "mark_limit" => "THERE CANNOT BE MORE MARKED CELLS THAN MINES",
+    "open_mark" => "A MARKED CELL CANNOT BE OPENED",
+    "mark_opened" => "AN OPENED CELL CANNOT BE MARKED",
+    "already_opened" => "CELL ALREADY OPENED. MORE NEIGHBOUR CELLS CANNOT BE OPENED"
+)
 
 ## Characters to draw the Board
-INDENT_BIG = "    "
-INDENT_SMALL = "  "
-COE = '\u2500' # ─ 
-CNS = '\u2502' # │ 
-CES = '\u250C' # ┌ 
-CSO = '\u2510' # ┐ 
-CNE = '\u2514' # └ 
-CON = '\u2518' # ┘ 
-COES = '\u252C' # ┬ 
-CNES = '\u251C' # ├ 
-CONS = '\u2524' # ┤ 
-CONE = '\u2534' # ┴ 
+const INDENT_BIG = "    "
+const INDENT_SMALL = "  "
+const COE = '\u2500' # ─ 
+const CNS = '\u2502' # │ 
+const CES = '\u250C' # ┌ 
+const CSO = '\u2510' # ┐ 
+const CNE = '\u2514' # └ 
+const CON = '\u2518' # ┘ 
+const COES = '\u252C' # ┬ 
+const CNES = '\u251C' # ├ 
+const CONS = '\u2524' # ┤ 
+const CONE = '\u2534' # ┴ 
 
 
 # Exported references
 # ---------------------
-export Board
+export Board, Play, play!, isended, islost, iswon
 
 
 # Auxiliary functions 
 # ---------------------
+"""
+    Action 
 
+Enumeration of the two possible actions that can be applied on a cell: `mark` and `open`.
+"""
+@enum Action mark = 1 open = 2
+@enum Result win = 1 loss = 2 unknown = 3
+
+function symbol2action(s::Char)
+    (s in ACTIONS_SYMBOLS) || throw(DomainError(s, "action symbol must be '!' or '*'"))
+    Action(findfirst(ACTIONS_SYMBOLS, s)[1])
+end
+
+function rowname2int(r::Char)
+    (r in ROW_NAMES) || throw(DomainError(r, "row name must be 'ABCD...'"))
+    findfirst(ROW_NAMES, r)[1]
+end
+
+function colname2int(c::Char)
+    (c in COL_NAMES) || throw(DomainError(c, "colum name must be in 'abcd...'"))
+
+end
 
 
 # Main functions 
 # ---------------------
+
+"""
+    Play 
+
+Represents a play  in the game 
+"""
+struct Play
+    row::Int
+    col::Int
+    action::Action
+end
+
+""" 
+    Play(row::Char, col::Char, action::Char)    
+
+Creates a Play given the row, the column and the action as Char.
+"""
+function Play(row::Char, col::Char, action::Char)
+    Play(
+        rowname2int(row),
+        colname2int(col),
+        symbol2action(action)
+    )
+end
+
+
 """
     Board 
 
 Represents a Minesweeper gameboard with an start time `tstart`
 and cells `cells`.
 """
-mutable struct Board <: AbstractArray{Cells.Cell, 2}
-    cells::Matrix{Cells.Cell}
+mutable struct Board <: AbstractArray{Cell,2}
+    cells::Matrix{Cell}
     tstart::Dates.DateTime
-    tend::Union{Dates.DateTime,Nothing}  
-    
-    function Board(cells::Matrix{Cells.Cell})
-        new(cells, Dates.now(), nothing)
+    tend::Union{Dates.DateTime,Nothing}
+    result::Result
+
+    function Board(cells::Matrix{Cell})
+        new(cells, Dates.now(), nothing, Result.unknown)
     end
 end
 
@@ -76,16 +135,17 @@ Constructs a Board of size `(rows, cols)` with `n` mines randomly
 located.
 """
 function Board(rows::Int, cols::Int, n::Int)
+    (rows >= 1) || throw(DomainError(rows, "the number of rows must be >= 1"))
+    (cols >= 1) || throw(DomainError(cols, "the number of columns must be >= 1"))
+    (n >= 1) || throw(DomainError(n, "the number of mines must be >= 1"))
 
     mined_positions = sample(1:(rows*cols), n, replace=false)
-    cells = Array{Cells.Cell,2}(undef, rows, cols)
+    cells = Array{Cell,2}(undef, rows, cols)
 
-    for j in 1:cols
-        for i in 1:rows
-            pos::Int = (i - 1) * cols + j
-            hasmine::Bool = pos in mined_positions
-            cells[i, j] = Cells.Cell(hasmine)
-        end
+    for j = 1:cols, i = 1:rows
+        pos::Int = (i - 1) * cols + j
+        hasmine::Bool = pos in mined_positions
+        cells[i, j] = Cell(i, j, hasmine)
     end
 
     Board(cells)
@@ -94,24 +154,24 @@ end
 """
     Board(rows::Int, cols::Int, n::Int)
 
-Constructs a Board of difficulty `d` in `[:begginer, :intermediate, :difficult]`.
+Constructs a Board of difficulty `d` in `[:begginer, :intermediate, :expert]`.
 """
 function Board(d::Symbol)
+    (d in [:beginner, :intermediate, :expert]) || throw(DomainError(d, "invalid diffulty level"))
+
     if d == :beginner
         Board(9, 9, 10)
     elseif d == :intermediate
         Board(16, 16, 40)
-    elseif d == :expert
+    else # :expert
         Board(16, 30, 99)
-    else
-        throw(ArgumentError("undefined difficulty '$(:d)'"))
     end
 end
 
 """
     Board(rows::Int, cols::Int, n::Int)
 
-Constructs a Board from a text especification.
+Constructs a Board from a textfile especification.
 """
 function Board(v::Vector{String})
     s = split(strip(v[1]))
@@ -119,17 +179,17 @@ function Board(v::Vector{String})
     n_cols = parse(Int, s[2])
 
     # create empty array of cells
-    cells = Array{Cells.Cell, 2}(undef, n_rows, n_cols)
-    
+    cells = Array{Cell,2}(undef, n_rows, n_cols)
+
     for (i, row) in enumerate(v[2:end])
-        for (j, c) in enumerate(strip(row))
-            hasmine = c == '*' ? true : false
-            cells[i,j] = Cells.Cell(hasmine)
+        for (j, col) in enumerate(strip(row))
+            hasmine = (col == '*') ? true : false
+            cells[i, j] = Cell(i, j, hasmine)
         end
     end
 
     Board(cells)
-end 
+end
 
 
 """
@@ -158,7 +218,9 @@ Writes a text representation of the board.
 function show(io::IO, b::Board)
 
     # Auxiliar functions
-    rowindent(row::Int) = iseven(row) ?  " " : "   "
+    function rowindent(row::Int)
+        iseven(row) ? " " : "   "
+    end
 
     n_rows, n_cols = size(b)
     t_sec = Dates.format(boardtime(b), "S.s") # time in seconds
@@ -207,11 +269,11 @@ function show(io::IO, b::Board)
 
                 elseif k == 2
                     if j == 1
-                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(Cells.tochar(b[i,j])) "
+                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(tochar(b[i,j])) "
                     elseif 1 < j < n_cols
-                        row *= "$(CNS) $(Cells.tochar(b[i,j])) "
+                        row *= "$(CNS) $(tochar(b[i,j])) "
                     else
-                        row *= "$(CNS) $(Cells.tochar(b[i,j])) $(CNS)\n"
+                        row *= "$(CNS) $(tochar(b[i,j])) $(CNS)\n"
                     end
 
                 else
@@ -220,7 +282,7 @@ function show(io::IO, b::Board)
                             row *= "$(INDENT_BIG)$(CNE)$(COE)$(COE)$(COE)"
                         else
                             row *= "$(INDENT_SMALL)$(CNE)$(COE)$(COE)$(COE)"
-                        end 
+                        end
                     elseif 1 < j < n_cols && i == n_rows
                         row *= "$(CONE)$(COE)$(COE)$(COE)"
                     elseif j == n_cols && i == n_rows
@@ -228,13 +290,95 @@ function show(io::IO, b::Board)
                     else
                         continue
                     end
-                end      
+                end
             end # k for
         end # j for
         s *= row
     end # i for
 
     print(io, s)
+end
+
+
+"""
+    isended(b::Board)
+
+Determines if the game has ended
+"""
+
+function isended(b::Board)::Bool
+    b.tend !== nothing
+end
+
+"""
+    iswon(b::Board)
+
+Determines if the game has been won
+"""
+function iswon(b::Board)::Bool
+    b.result == Result.win
+end
+
+"""
+    islost(b::Board)
+
+Determines if the game has been lost
+"""
+function islost(b::Board)::Bool
+    b.result == Result.loss 
+end 
+
+"""
+    play(board::Board, p::Play)
+
+"""
+function play!(b::Board, p::Play)
+
+    cell = b[p.row, p.col]
+
+    # validate play 
+    if p.action == Action.mark && (nmarked(b) == nmined(b))
+        throw(ErrorException(ERROR_MSGS["mark_limit"]))
+    end
+    if p.action == Action.mark && open(cell)
+        throw(ErrorException(ERROR_MSGS["mark_opened"]))
+    end
+    if p.action == Action.open && nmarked(cell)
+        throw(ErrorException(ERROR_MSGS["open_mark"]))
+    end
+    if p.action == Action.open && open(cell) && n(neighbours(b, p.row, p.col)) > 0
+        throw(ErrorException(ERROR_MSGS["already_opened"]))
+    end
+
+    # mark
+    if p.action == Action.mark
+        mark!(cell)
+        if allmarked(b)
+            registerwin!(b)
+        end
+        # open 
+    else
+        # queue containing the cellls to be opened
+        queue::Vector{Cell} = [cell]
+
+        while !isempty(queue) && !isended(b)
+            c = pop!(queue)
+
+            if !isopen(c)
+                open!(c)
+                if hasmine(c)
+                    registerloss!(b)
+                end
+            else
+                nbs = neighbours(b, c.row, c.col)
+                if n(nbs) <= 0
+                    unmarked_nbs = filter(nb -> !ismarked(nb), nbs)
+                    append!(queue, unmarked_nbs)
+                end
+            end
+        end
+    end
+
 end
 
 """
@@ -246,23 +390,34 @@ function boardtime(b::Board)
 end
 
 """
-    marked(b::Board)
+    nmarked(b::Board)
 
 Number of cells that are marked 
 """
-function marked(b::Board)
+function nmarked(b::Board)::Int
+    marked = 0
     n_rows, n_cols = size(b)
 
-    marked = 0
-    for j in 1:n_cols
-        for i in 1:n_rows
-            if b.cells[i, j].marked
-                marked += 1
-            end
-        end
+    for j = 1:n_cols, i = 1:n_rows
+        b[i, j].marked && (marked += 1)
     end
 
     marked
+end
+
+"""
+    nmined(b::Board)
+
+Number of cells that are mined 
+"""
+function nmined(b::Board)::Int
+    mined = 0
+    n_rows, n_cols = size(b)
+
+    for j = 1:n_cols, i = 1:n_rows
+        b[i, j].hasmine && (mined += 1)
+    end
+    mined
 end
 
 """
@@ -270,94 +425,126 @@ end
 
 Cell neighbours at position `[i, j]`
 """
-function neighbours(b::Board, i::Int64, j::Int64)
-    n::Vector{Cells.Cell} = []
+function neighbours(b::Board, i::Int64, j::Int64)::Vector{Cell}
+    nbs::Vector{Cell} = []
     n_rows, n_cols = size(b)
 
     if j > 1
-        append!(n, b[i,j-1])
+        append!(nbs, b[i, j-1])
     end
 
     if j < n_cols
-        append!(n, b[i,j+1])
+        append!(nbs, b[i, j+1])
     end
 
     if isodd(i)
         if i > 1
-            append!(n, [b[i-1, j], b[i-1,j+1]])
-        end 
+            append!(nbs, [b[i-1, j], b[i-1, j+1]])
+        end
 
         if i < n_rows
-            append!(n, [b[i+1,j], b[i+1,j+1]])
-        end 
+            append!(nbs, [b[i+1, j], b[i+1, j+1]])
+        end
     else
         if i > 1
-            append!(n, [b[i-1, j], b[i-1,j-1]])
-        end 
+            append!(nbs, [b[i-1, j], b[i-1, j-1]])
+        end
 
         if i < n_rows
-            append!(n, [b[i+1,j], b[i+1,j-1]])
-        end 
-
+            append!(nbs, [b[i+1, j], b[i+1, j-1]])
+        end
     end
-    n
-end 
+    nbs
+end
 
 """
     n(n::Vector{Cell})
 
-Estimated number of mines to be discovered among the neighbours
-of Cell at position `[i,j]`.
+Estimated number of mines to be discovered among a group of cells.
 """
-function n(b::Board, i::Int64, j::Int64)
-    nbs = neighbours(b, i, j)
-    withmine = length(filter(c -> hasmine(c), nbs))
-    withmark = length(filter(c -> ismarked(c), nbs))
+function n(cells::Vector{Cell})::Int
+    withmine = length(filter(c -> hasmine(c), cells))
+    withmark = length(filter(c -> ismarked(c), cells))
 
     withmine - withmark
-end 
+end
 
-function colnames(b::Board)
-    n_rows, n_cols = size(b)
+"""
+    colnames(b::Board)
+
+Column names of a Board `b`.
+"""
+function colnames(b::Board)::String
+    n_cols = size(b)[2]
     COL_NAMES[1:n_cols]
 end
 
-function rownames(b::Board)
-    n_rows, n_cols = size(b)
+"""
+    rownames(b::Board)
+
+Row names of a Board `b`.
+"""
+function rownames(b::Board)::String
+    n_rows = size(b)[1]
     ROW_NAMES[1:n_rows]
 end
 
-function isfinished(b::Board)
-    #TODO
-    false
-end 
+"""
+    allmarked(b::Board)
 
+Determines if the game has been lost
+"""
+function allmarked(b::Board)::Bool
+    n_rows, n_cols = size(b)
 
-function isvalid_play(b::Board, play::String)
-    if length(play) != 3 
-        falseñ
-    elseif !(play[1] in rownames(b))
-        false 
-    elseif !(play[2] in colnames(b))
-        false
-    elseif !(play[3] in ACTIONS)
-        false
-    else
-        true 
+    for j = 1:n_cols, i = 1:n_rows
+        if !isopen(b[i, j]) && !marked(b[i, j])
+            return false
+        end
     end
+    true
 end
 
+"""
+    openall!(b::Board)
 
-function regfinish!(b::Board)
+Opens all cells of the Board.
+"""
+function openall!(b::Board)
+    n_rows, n_cols = size(b)
+
+    for j = 1:n_cols, i = 1:n_rows
+        open!(b[j,i])
+    end 
+end 
+
+"""
+    registerwin!(b::Board)
+
+Registers that the user has won the game on the Board.
+"""
+function registerwin!(b::Board)
+    b.result = Result.win
+    registerend!(b)
+end
+
+"""
+    registerloss!(b::Board)
+
+Registers that the user has lost the game on the Board.
+"""
+function registerloss!(b::Board)
+    b.result = Result.loss
+    registerend!(b)
+end
+
+"""
+    registerend!(b::Board)
+
+Registers that the the current time as the end time
+"""
+function registerend!(b::Board)
     b.tend = Dates.now()
 end
-
-function mark!(b::Board, i::Int64, j::Int64)
-    Cells.mark!(b[i,j])
-end
-
-function open!(b::Board, i::Int64, j::Int64)
-    Cells.open!(b[i,j])
-end 
 
 end # module    

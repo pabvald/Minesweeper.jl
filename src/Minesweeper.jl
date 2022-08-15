@@ -1,12 +1,17 @@
 module Minesweeper
 
-# Inclusions
+# 3rd Party Dependencies
+# ---------------------
+using Revise
+
+# Local Dependencies
 # ---------------------
 include("Boards.jl")
+using .Boards
 
 # Module Constants
 # ---------------------
-MAIN_MENU = """
+const MAIN_MENU = """
 
 MINESWEEPER
 -----------
@@ -17,100 +22,131 @@ MINESWEEPER
 5. Exit 
 
 Choose an option:"""
-
-PLAY_MENU = "\nIndicate cell and action (! mark, * open): "
+const FILE_MENU = "\nPlease, introduce the filename: "
+const PLAY_MENU = "\nIndicate cell and action (! mark, * open): "
+const WIN_MESSAGE = "\n Congrats, you have WON the game!!!"
+const LOSS_MESSAGE = "\nYou have lost..."
 
 # Exported references
 # ---------------------
-export play
 
 # Auxiliary Functions
 # ---------------------
 
+"""
+    validfileformat(content::Vector{String})
+"""
+function validfileformat(content::Vector{String})::Bool
+    # read n_rows and n_cols
+    s = split(strip(content[1]))
+    n_rows = parse(Int, s[1])
+    n_cols = parse(Int, s[2])
+
+    if length(content[2:end]) != n_rows
+        return false
+    end
+
+    for row in content[2:end]
+        if length(strip(row)) != n_cols
+            return false
+        end
+        for col in strip(row)
+            if !(col in ".*")
+                return false
+            end
+        end
+    end
+
+    true
+end
 
 # Primary Functions
 # ---------------------
 
 """
-    load_board()
+    loadboard()
 
 Loads the specification of a Board from a text file.
 """
-function load_board()
-    filename = "" 
+function loadboard()::Vector{String}
+    filename = ""
     filepath = ""
-    read = false 
-    content::Union{Vector{String}, Nothing} = nothing
+    read = false
+    content::Union{Vector{String},Nothing} = nothing
 
     while !read
-        n_rows = -1
-        n_cols = -1
-        valid = true
-
-        # ask user for filename
-        print("\nPlease, introduce the filename: ")
-        filename = readline()
-        filepath = "src/data/$(filename)"
-        
-        # check if file exists
-        if  !isfile(filepath)
-            print("\nError - `$(filepath)` is not a file")
-            continue
-        end 
-
-        content= readlines(filepath)
-
-        # read n_rows and n_cols
-        s = split(strip(content[1]))
         try
-            n_rows = parse(Int, s[1])
-            n_cols = parse(Int, s[2])
-        catch e  
-            valid = false
-        end
-        
-        for row in content[2:end]
-            if length(strip(row)) != n_cols
-                valid = false
-                break
-            end
-            for col in strip(row)
-                if !(col in ".*")
-                    valid = false 
-                    break
-                end
-            end
-        end
+            # ask user for filename
+            print(FILE_MENU)
+            filename = readline()
+            filepath = "src/data/$(filename)"
 
-        if !valid
-            print("\nError - invalid file format")
-            continue
-        end 
+            # check if file exists
+            !isfile(filepath) && throw(ErrorException("`$(filepath)` is not a file"))
 
-        read = true
-        
+            # read file
+            content = readlines(filepath)
+            # check format
+            !validfileformat(content) && throw(ErrorException("invalid file format"))
+
+            read = true
+        catch e
+            print("Error - $(e.msg)")
+        end
     end # while 
 
     content
-end 
+end
 
+"""
+    play(board::Board)
 
-function play(b::Boards.Board)
+Controls the flow the game asking the user for a play and applying on the board
+"""
+function play(board::Board)
 
-    while !Boards.isfinished(b)
-        print(b)
+    while !isended(board)
+        print(board)
         print(PLAY_MENU)
+        allplays = readline()
 
         i = 1
-        allinput = readline()
+        error = false      
 
-        while i < length(allinput) 
-            input = allinput[i:min(i+2, length(allinput))]
-            print(input * "\n")
-            i +=3
-        end       
-    end
-end 
+        while i < length(allplays) && !error
+
+            input = allinputs[i:min(i + 2, length(allplays))]
+
+            try
+                if length(input) != 3 || 
+                    !(input[1] in rownames(board)) || 
+                    !(input[2] in colnames(board)) || 
+                    !(input[3] in ACTIONS_SYMBOLS)
+                        throw(ErrorException(ERROR_MSGS["wrong_input"]))
+                end
+
+                # create play 
+                row, col, action = input
+                p = Play(row, col, action)
+                           
+                # play 
+                play!(board, p)
+
+                i += 3
+            catch e
+                print(e.msg)
+                error = true
+            end
+        end # while 2
+    end # while 1
+
+    if iswon(board)
+        print(LOSS_MESSAGE)
+    else 
+        print(WIN_MESSAGE)
+    end 
+end
+
 
 """
     main()
@@ -118,34 +154,37 @@ end
 Initiates the Minesweeper game.
 """
 function main()
-    exit = false 
+    exit = false
 
-    while !exit 
-
+    while !exit
         print(MAIN_MENU)
         selec = parse(Int16, readline())
 
+        # Random - beginner level 
         if selec == 1
-            board = Boards.Board(:beginner)
+            board = Board(:beginner)
             play(board)
+            # random - intermediate level 
         elseif selec == 2
-            board = Boards.Board(:intermediate)
+            board = Board(:intermediate)
             play(board)
+            # random - expert level 
         elseif selec == 3
-            board = Boards.Board(:expert)
+            board = Board(:expert)
             play(board)
+            # load level
         elseif selec == 4
-            description = load_board()
-            board = Boards.Board(description)
+            description = loadboard()
+            board = Board(description)
             play(board)
+            # exit
         elseif selec == 5
             print("Good bye!!\n")
             exit = true
         else
             print("Invalid input - please, choose an option 1, 2, 3, 4 or 5\n")
         end
-
-    end
+    end # while
 end
 
 end # module
