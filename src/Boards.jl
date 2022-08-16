@@ -30,7 +30,6 @@ const MAX_ROWS = 30
 const MAX_COLS = 30
 const ERROR_MSGS = Dict(
     # key : error message
-    "wrong_input" => "WRONG INPUT",
     "mark_limit" => "THERE CANNOT BE MORE MARKED CELLS THAN MINES",
     "open_mark" => "A MARKED CELL CANNOT BE OPENED",
     "mark_opened" => "AN OPENED CELL CANNOT BE MARKED",
@@ -54,7 +53,7 @@ const CONE = '\u2534' # ┴
 
 # Exported references
 # ---------------------
-export Board, Play, play!, isended, islost, iswon
+export Board, Play, play!, isended, islost, iswon, rownames, colnames, actionsymbols
 
 
 # Auxiliary functions 
@@ -64,22 +63,22 @@ export Board, Play, play!, isended, islost, iswon
 
 Enumeration of the two possible actions that can be applied on a cell: `mark` and `open`.
 """
-@enum Action mark = 1 open = 2
+@enum Action amark = 1 aopen = 2
 @enum Result win = 1 loss = 2 unknown = 3
 
 function symbol2action(s::Char)
-    (s in ACTIONS_SYMBOLS) || throw(DomainError(s, "action symbol must be '!' or '*'"))
-    Action(findfirst(ACTIONS_SYMBOLS, s)[1])
+    !(s in ACTIONS_SYMBOLS) && throw(DomainError(s, "action symbol must be '!' or '*'"))
+    Action(findfirst(s, ACTIONS_SYMBOLS)[1])
 end
 
 function rowname2int(r::Char)
-    (r in ROW_NAMES) || throw(DomainError(r, "row name must be 'ABCD...'"))
-    findfirst(ROW_NAMES, r)[1]
+    !(r in ROW_NAMES) && throw(DomainError(r, "row name must be 'ABCD...'"))
+    findfirst(r, ROW_NAMES)[1]
 end
 
 function colname2int(c::Char)
-    (c in COL_NAMES) || throw(DomainError(c, "colum name must be in 'abcd...'"))
-
+    !(c in COL_NAMES) && throw(DomainError(c, "colum name must be in 'abcd...'"))
+    findfirst(c, COL_NAMES)[1]
 end
 
 
@@ -124,7 +123,7 @@ mutable struct Board <: AbstractArray{Cell,2}
     result::Result
 
     function Board(cells::Matrix{Cell})
-        new(cells, Dates.now(), nothing, Result.unknown)
+        new(cells, Dates.now(), nothing, Result(3))
     end
 end
 
@@ -197,7 +196,7 @@ end
 
 Gets 'b.cells[i,j]'.
 """
-function getindex(b::Board, i::Int64, j::Int64)
+function getindex(b::Board, i::Int64, j::Int64)::Cell
     getindex(b.cells, i, j)
 end
 
@@ -206,7 +205,7 @@ end
 
 Dimensions of the Board `b`.
 """
-function size(b::Board)
+function size(b::Board)::Tuple{Int, Int}
     size(b.cells)
 end
 
@@ -225,8 +224,9 @@ function show(io::IO, b::Board)
     n_rows, n_cols = size(b)
     t_sec = Dates.format(boardtime(b), "S.s") # time in seconds
 
+
     # header
-    s = "\nREMAINING MINES: $(16) | MARKED: $(marked(b)) | TIME: $(t_sec) sec.\n"
+    s = "\nREMAINING MINES: $(nmined(b) - nmarked(b)) | MARKED: $(nmarked(b)) | TIME: $(t_sec) sec.\n"
 
     # col names 
     colnames = "     "
@@ -337,21 +337,21 @@ function play!(b::Board, p::Play)
     cell = b[p.row, p.col]
 
     # validate play 
-    if p.action == Action.mark && (nmarked(b) == nmined(b))
+    if p.action == amark && (nmarked(b) == nmined(b))
         throw(ErrorException(ERROR_MSGS["mark_limit"]))
     end
-    if p.action == Action.mark && open(cell)
+    if p.action == amark && isopen_(cell)
         throw(ErrorException(ERROR_MSGS["mark_opened"]))
     end
-    if p.action == Action.open && nmarked(cell)
+    if p.action == aopen && ismarked_(cell)
         throw(ErrorException(ERROR_MSGS["open_mark"]))
     end
-    if p.action == Action.open && open(cell) && n(neighbours(b, p.row, p.col)) > 0
+    if p.action == aopen && isopen_(cell) && n(neighbours(b, p.row, p.col)) > 0
         throw(ErrorException(ERROR_MSGS["already_opened"]))
     end
 
     # mark
-    if p.action == Action.mark
+    if p.action == amark
         mark!(cell)
         if allmarked(b)
             registerwin!(b)
@@ -364,7 +364,7 @@ function play!(b::Board, p::Play)
         while !isempty(queue) && !isended(b)
             c = pop!(queue)
 
-            if !isopen(c)
+            if !isopen_(c)
                 open!(c)
                 if hasmine(c)
                     registerloss!(b)
@@ -372,7 +372,7 @@ function play!(b::Board, p::Play)
             else
                 nbs = neighbours(b, c.row, c.col)
                 if n(nbs) <= 0
-                    unmarked_nbs = filter(nb -> !ismarked(nb), nbs)
+                    unmarked_nbs = filter(nb -> !ismarked_(nb), nbs)
                     append!(queue, unmarked_nbs)
                 end
             end
@@ -399,7 +399,7 @@ function nmarked(b::Board)::Int
     n_rows, n_cols = size(b)
 
     for j = 1:n_cols, i = 1:n_rows
-        b[i, j].marked && (marked += 1)
+        ismarked_(b[i, j]) && (marked += 1)
     end
 
     marked
@@ -415,7 +415,7 @@ function nmined(b::Board)::Int
     n_rows, n_cols = size(b)
 
     for j = 1:n_cols, i = 1:n_rows
-        b[i, j].hasmine && (mined += 1)
+        hasmine(b[i, j]) && (mined += 1)
     end
     mined
 end
@@ -464,9 +464,18 @@ Estimated number of mines to be discovered among a group of cells.
 """
 function n(cells::Vector{Cell})::Int
     withmine = length(filter(c -> hasmine(c), cells))
-    withmark = length(filter(c -> ismarked(c), cells))
+    withmark = length(filter(c -> ismarked_(c), cells))
 
     withmine - withmark
+end
+
+"""
+    actionsymbols(b::Board)
+
+Column names of a Board `b`.
+"""
+function actionsymbols(b::Board)::String
+    ACTIONS_SYMBOLS
 end
 
 """
@@ -498,7 +507,7 @@ function allmarked(b::Board)::Bool
     n_rows, n_cols = size(b)
 
     for j = 1:n_cols, i = 1:n_rows
-        if !isopen(b[i, j]) && !marked(b[i, j])
+        if !isopen_(b[i, j]) && !ismarked_(b[i, j])
             return false
         end
     end

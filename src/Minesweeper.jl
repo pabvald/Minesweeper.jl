@@ -25,10 +25,15 @@ Choose an option:"""
 const FILE_MENU = "\nPlease, introduce the filename: "
 const PLAY_MENU = "\nIndicate cell and action (! mark, * open): "
 const WIN_MESSAGE = "\n Congrats, you have WON the game!!!"
-const LOSS_MESSAGE = "\nYou have lost..."
+const LOSS_MESSAGE = "\nYou have lost, L ..."
+const MAX_ROWS = 30
+const MAX_COLS = 30
+const ERROR_MSGS = Dict(
+    # key : error message
+    "wrong_input" => "WRONG INPUT",
+    
+)
 
-# Exported references
-# ---------------------
 
 # Auxiliary Functions
 # ---------------------
@@ -57,7 +62,7 @@ function validfileformat(content::Vector{String})::Bool
         end
     end
 
-    true
+    return true
 end
 
 # Primary Functions
@@ -108,20 +113,20 @@ function play(board::Board)
     while !isended(board)
         print(board)
         print(PLAY_MENU)
-        allplays = readline()
+        allinputs = readline()
 
         i = 1
         error = false      
 
-        while i < length(allplays) && !error
+        while i < length(allinputs) && !error
 
-            input = allinputs[i:min(i + 2, length(allplays))]
+            input = allinputs[i:min(i + 2, length(allinputs))]
 
             try
                 if length(input) != 3 || 
                     !(input[1] in rownames(board)) || 
                     !(input[2] in colnames(board)) || 
-                    !(input[3] in ACTIONS_SYMBOLS)
+                    !(input[3] in actionsymbols(board))
                         throw(ErrorException(ERROR_MSGS["wrong_input"]))
                 end
 
