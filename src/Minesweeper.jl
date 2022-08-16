@@ -110,7 +110,7 @@ Controls the flow the game asking the user for a play and applying on the board
 """
 function play(board::Board)
 
-    while !isended(board)
+    while !isfinished(board)
         print(board)
         print(PLAY_MENU)
         allinputs = readline()

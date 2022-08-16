@@ -83,23 +83,33 @@ end
 Provides a character representation of a Cell `c` depending on 
 its state and the `n = # of mined neighbours - # of marked neighbours`.
 """ 
-function tochar(c::Cell, n::Int=0)::Char
-    #TODO special cases when the game has finished
-    if isopen_(c)
-        if n < 0 
-            '?'
-        elseif n == 0
+function tochar(c::Cell, n::Int, finished::Bool)::Char
+    if finished
+        if ismarked_(c) && !hasmine(c)
+            '#'
+        elseif !ismarked_(c) && hasmine(c)
+            '*'
+        else
             ' '
-        else # n > 0
-            Char(n)
         end 
-    else
-        if ismarked_(c)
-            'X'
-        else 
-            '\u2593' # ▒
-        end 
-    end     
+    else 
+        if isopen_(c)
+            if n < 0 
+                '?'
+            elseif n == 0
+                ' '
+            else # n > 0
+                Char(n)
+            end 
+        else
+            if ismarked_(c)
+                'X'
+            else 
+                '\u2593' # ▒
+            end 
+        end  
+    end 
+       
 end
 
 end 

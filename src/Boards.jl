@@ -53,7 +53,7 @@ const CONE = '\u2534' # ┴
 
 # Exported references
 # ---------------------
-export Board, Play, play!, isended, islost, iswon, rownames, colnames, actionsymbols
+export Board, Play, play!, isfinished, islost, iswon, rownames, colnames, actionsymbols
 
 
 # Auxiliary functions 
@@ -268,12 +268,16 @@ function show(io::IO, b::Board)
                     end
 
                 elseif k == 2
+                    cell = b[i,j]
+                    cn = n(neighbours(b, i, j))
+                    f = isfinished(b)
+                    
                     if j == 1
-                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(tochar(b[i,j])) "
+                        row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(tochar(cell, cn, f)) "
                     elseif 1 < j < n_cols
-                        row *= "$(CNS) $(tochar(b[i,j])) "
+                        row *= "$(CNS) $(tochar(cell, cn, f)) "
                     else
-                        row *= "$(CNS) $(tochar(b[i,j])) $(CNS)\n"
+                        row *= "$(CNS) $(tochar(cell, cn, f)) $(CNS)\n"
                     end
 
                 else
@@ -301,12 +305,12 @@ end
 
 
 """
-    isended(b::Board)
+    isfinished(b::Board)
 
 Determines if the game has ended
 """
 
-function isended(b::Board)::Bool
+function isfinished(b::Board)::Bool
     b.tend !== nothing
 end
 
@@ -361,7 +365,7 @@ function play!(b::Board, p::Play)
         # queue containing the cellls to be opened
         queue::Vector{Cell} = [cell]
 
-        while !isempty(queue) && !isended(b)
+        while !isempty(queue) && !isfinished(b)
             c = pop!(queue)
 
             if !isopen_(c)
