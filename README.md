@@ -1,6 +1,6 @@
 # Minesweeper.jl
 
-Minesweeper game in terminal used to familirize myself with the basics of Julia.
+Minesweeper game in terminal created to familirize myself with the basics of Julia.
 
 ## Game modes 
  - Beginner: 9x9 board containing 10 mines 
