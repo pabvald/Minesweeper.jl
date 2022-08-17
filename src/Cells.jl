@@ -55,6 +55,7 @@ end
 
 """
     isopen_(c::Cell)
+
 Returns `true` if Cell `c` is 'open'.
 """
 function isopen_(c::Cell)::Bool
@@ -63,6 +64,7 @@ end
 
 """
     ismarked_(c::Cell)
+
 Returns `true` if Cell `c` is 'marked'.
 """
 function ismarked_(c::Cell)::Bool
@@ -71,6 +73,7 @@ end
 
 """
     hasmine(c::Cell)
+
 Returns `true` if Cell `c` is 'mined'.
 """
 function hasmine(c::Cell)::Bool
@@ -99,7 +102,7 @@ function tochar(c::Cell, n::Int, finished::Bool)::Char
             elseif n == 0
                 ' '
             else # n > 0
-                Char(n)
+                Char(n + '0') 
             end 
         else
             if ismarked_(c)

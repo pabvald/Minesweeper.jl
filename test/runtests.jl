@@ -7,8 +7,10 @@ include("../src/Cells.jl")
 
 # Local Dependencies
 # ----------------------------------
-using .Boards 
 using .Cells
+using .Boards
+using .Boards: neighbours, n, nmined, nmarked 
+
 
 println("Julia version: ", VERSION)
 

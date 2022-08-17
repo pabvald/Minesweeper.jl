@@ -205,7 +205,7 @@ end
 
 Dimensions of the Board `b`.
 """
-function size(b::Board)::Tuple{Int, Int}
+function size(b::Board)::Tuple{Int,Int}
     size(b.cells)
 end
 
@@ -268,10 +268,10 @@ function show(io::IO, b::Board)
                     end
 
                 elseif k == 2
-                    cell = b[i,j]
+                    cell = b[i, j]
                     cn = n(neighbours(b, i, j))
                     f = isfinished(b)
-                    
+
                     if j == 1
                         row *= "$(ROW_NAMES[i])$(rowindent(i))$(CNS) $(tochar(cell, cn, f)) "
                     elseif 1 < j < n_cols
@@ -329,8 +329,8 @@ end
 Determines if the game has been lost
 """
 function islost(b::Board)::Bool
-    b.result == Result.loss 
-end 
+    b.result == Result.loss
+end
 
 """
     play(board::Board, p::Play)
@@ -376,7 +376,7 @@ function play!(b::Board, p::Play)
             else
                 nbs = neighbours(b, c.row, c.col)
                 if n(nbs) <= 0
-                    unmarked_nbs = filter(nb -> !ismarked_(nb), nbs)
+                    unmarked_nbs = filter(nb -> !ismarked_(nb) && !isopen_(nb), nbs)
                     append!(queue, unmarked_nbs)
                 end
             end
@@ -434,28 +434,43 @@ function neighbours(b::Board, i::Int64, j::Int64)::Vector{Cell}
     n_rows, n_cols = size(b)
 
     if j > 1
-        append!(nbs, b[i, j-1])
+        push!(nbs, b[i, j-1])
     end
 
     if j < n_cols
-        append!(nbs, b[i, j+1])
+        push!(nbs, b[i, j+1])
     end
 
     if isodd(i)
         if i > 1
-            append!(nbs, [b[i-1, j], b[i-1, j+1]])
+            push!(nbs, b[i-1, j])
+
+            if j < n_cols
+                push!(nbs, b[i-1, j+1])
+            end
         end
 
         if i < n_rows
-            append!(nbs, [b[i+1, j], b[i+1, j+1]])
+            push!(nbs, b[i+1, j])
+
+            if j < n_cols
+                push!(nbs, b[i+1, j+1])
+            end
         end
     else
         if i > 1
-            append!(nbs, [b[i-1, j], b[i-1, j-1]])
+            push!(nbs, b[i-1, j])
+
+            if j > 1
+                push!(nbs, b[i-1, j-1])
+            end
         end
 
         if i < n_rows
-            append!(nbs, [b[i+1, j], b[i+1, j-1]])
+            push!(nbs, b[i+1, j])
+            if j > 1
+                push!(nbs, b[i+1, j-1])
+            end
         end
     end
     nbs
@@ -527,9 +542,9 @@ function openall!(b::Board)
     n_rows, n_cols = size(b)
 
     for j = 1:n_cols, i = 1:n_rows
-        open!(b[j,i])
-    end 
-end 
+        open!(b[j, i])
+    end
+end
 
 """
     registerwin!(b::Board)
