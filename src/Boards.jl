@@ -338,6 +338,26 @@ end
 """
 function play!(b::Board, p::Play)
 
+    """
+        recopen!(cell::Cell)
+
+    Recursively opens the neighbouring cells
+    """
+    function recopen!(cell::Cell)
+        queue::Vector{Cell} = [cell]
+    
+        while !isempty(queue) && !isfinished(b)
+            c = pop!(queue)
+            open!(c)
+            nbs = neighbours(b, c.row, c.col)
+            
+            if n(nbs) <= 0
+                recurr_nbs = filter(nb -> !ismarked_(nb) && !isopen_(nb), nbs)
+                append!(queue, recurr_nbs)
+            end
+        end
+    end
+
     cell = b[p.row, p.col]
 
     # validate play 
@@ -362,31 +382,20 @@ function play!(b::Board, p::Play)
         end
         # open 
     else
-        # queue containing the cellls to be opened
-        queue::Vector{Cell} = [cell]
-
-        while !isempty(queue) && !isfinished(b)
-            c = pop!(queue)
-
-            if !isopen_(c)
-                open!(c)
-                if hasmine(c)
-                    registerloss!(b)
-                end
-            else
-                nbs = neighbours(b, c.row, c.col)
-                if n(nbs) <= 0
-                    unmarked_nbs = filter(nb -> !ismarked_(nb) && !isopen_(nb), nbs)
-                    append!(queue, unmarked_nbs)
-                end
+        if !isopen_(cell)
+            open!(cell)
+            if hasmine(cell)
+                registerloss!(b)
             end
+        else
+            recopen!(cell)
         end
     end
-
 end
 
 """
     boardtime(b::Board)
+
 Determines the elapsed time since the Board `b` was created.
 """
 function boardtime(b::Board)
