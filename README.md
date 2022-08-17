@@ -1,2 +1,3 @@
 # Minesweeper.jl
-Minesweeper gamein in terminal
+
+Minesweeper game in terminal
