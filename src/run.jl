@@ -1,5 +1,3 @@
-include("Minesweeper.jl")
-using .Minesweeper
+using Minesweeper
 
 Minesweeper.main()
-
